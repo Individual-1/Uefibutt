@@ -8,8 +8,6 @@
 #include "graphics.h"
 #include "info.h"
 
-extern EFI_BOOT_SERVICES *gBS;
-
 /* TODO: collapse status->efi_error blocks maybe
 * TODO: do i need to free the info and gfx results?? info is callee allocated 
 * but with no indication that it needs to be manually freed
