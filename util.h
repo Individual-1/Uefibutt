@@ -3,8 +3,8 @@
 #ifndef UTIL_H
 #define UTIL_H
 
-#include <efi.h>
-#include <efilib.h>
+#include <Uefi.h>
+#include <Library/UefiLib.h>
 
 #include "info.h"
 

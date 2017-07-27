@@ -2,7 +2,10 @@
 
 #include <Uefi.h>
 #include <Library/UefiApplicationEntryPoint.h>
-#include <Library/Uefilib.h>
+#include <Library/UefiLib.h>
+#include <Library/MemoryAllocationLib.h>
+#include <Library/UefiRuntimeServicesTableLib.h>
+#include <Library/UefiBootServicesTableLib.h>
 
 #include "graphics.h"
 #include "info.h"
@@ -44,18 +47,46 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
 {
     EFI_STATUS status;
     EFI_INPUT_KEY key;
+    UINTN size;
 
-    // init efi lib for use
-    InitializeLib(ImageHandle, SystemTable);
+    // init efi lib for use gnu-efi thing
+    //InitializeLib(ImageHandle, SystemTable);
+    
+    // Load up global variables
+    if (!(gST = SystemTable)) {
+        return EFI_LOAD_ERROR;
+    }
+
+    if (!(gBS = SystemTable->BootServices)) {
+        return EFI_LOAD_ERROR;
+    }
+
+    if (!(gRT = SystemTable->RuntimeServices)) {
+        return EFI_LOAD_ERROR;
+    }
 
     Print(L"Press to do stuff\n");
 
     // test code please ignore
-    ST->ConIn->Reset(ST->ConIn, FALSE);
-    while ((status = ST->ConIn->ReadKeyStroke(ST->ConIn, &key)) == EFI_NOT_READY) ;
+    gST->ConIn->Reset(gST->ConIn, FALSE);
+    while ((status = gST->ConIn->ReadKeyStroke(gST->ConIn, &key)) == EFI_NOT_READY) ;
 
-    // populate memory map, we use the gnu-efi method so we don't have to deal with allocating memory
-    mem_map.memory_map = LibMemoryMap(&mem_map.num_entries, &mem_map.map_key, &mem_map.desc_size, &mem_map.desc_version);
+    // Grow buffer to fit memory map
+    size = 0;
+    status = gBS->GetMemoryMap(&size, mem_map.memory_map, &mem_map.map_key, &mem_map.desc_size, &mem_map.desc_version);
+    if (status == EFI_BUFFER_TOO_SMALL) {
+        // This is expected, add a little headroom on the size requested and allocate pool
+        size += SIZE_1KB;
+        mem_map.memory_map = AllocateZeroPool(size);
+        status = gBS->GetMemoryMap(&size, mem_map.memory_map, &mem_map.map_key, &mem_map.desc_size, &mem_map.desc_version);
+        if (EFI_ERROR(status)) {
+            return status;
+        }
+        mem_map.num_entries = size / mem_map.desc_size;
+    } else {
+        // Something is wrong, just exit
+        return status;
+    }
 
     // init graphics
     status = init_graphics(&gfx_info);
@@ -65,7 +96,7 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
 
     status = efivar_set(L"test", &ts, str, FALSE);
 
-    status = uefi_call_wrapper(BS->ExitBootServices, 2, ImageHandle, mem_map.map_key);
+    status = gBS->ExitBootServices(ImageHandle, mem_map.map_key);
     //TODO error handling
     
     /*
@@ -76,11 +107,11 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
      *  * GDT/IDT for our paging context
      */
     
-    status = uefi_call_wrapper(RT->SetVirtualAddressMap, 4, mem_map.num_entries, mem_map.desc_size, mem_map.desc_version, mem_map.memory_map);
+    status = gRT->SetVirtualAddressMap(mem_map.num_entries, mem_map.desc_size, mem_map.desc_version, mem_map.memory_map);
     //TODO error handling
 
-    print_memory_map(&mem_map);
-    //draw_triangle(&gfx_info);
+    //print_memory_map(&mem_map);
+    draw_triangle(&gfx_info);
 
     return status;
 }

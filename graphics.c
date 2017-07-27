@@ -1,11 +1,14 @@
 // Graphics related functions
 
-#include <efi.h>
-#include <efilib.h>
-#include <efiprot.h>
+#include <Uefi.h>
+#include <Library/UefiLib.h>
+#include <Library/MemoryAllocationLib.h>
+#include <Library/UefiBootServicesTableLib.h>
 
 #include "graphics.h"
 #include "info.h"
+
+extern EFI_BOOT_SERVICES *gBS;
 
 /* TODO: collapse status->efi_error blocks maybe
 * TODO: do i need to free the info and gfx results?? info is callee allocated 
@@ -22,10 +25,28 @@ EFI_STATUS init_graphics(OUT gfx_info_t *gfx_info)
 
     Print(L"Entering init graphics, gfx_info: %X\n", gfx_info);
 
-    status = LibLocateHandle(ByProtocol, &gEfiGraphicsOutputProtocolGuid, NULL, &nr_handles, &handles);
-    if (EFI_ERROR(status)) {
-        Print(L"Failed to locate gfx handles\n");
-        if (handles) FreePool(handles);
+    // old gnu-efi call
+    //status = LibLocateHandle(ByProtocol, &gEfiGraphicsOutputProtocolGuid, NULL, &nr_handles, &handles);
+
+    // Get handles, resizing buffer as needed
+    nr_handles = 0;
+    status = gBS->LocateHandle(ByProtocol, &gEfiGraphicsOutputProtocolGuid, NULL, &nr_handles, handles);
+    if (status == EFI_BUFFER_TOO_SMALL) {
+        nr_handles += SIZE_1KB;
+        handles = AllocateZeroPool(nr_handles);
+        status = gBS->LocateHandle(ByProtocol, &gEfiGraphicsOutputProtocolGuid, NULL, &nr_handles, handles);
+        
+        if (EFI_ERROR(status)) {
+            if (handles) {
+                FreePool(handles);
+                handles = NULL;
+            }
+            return status; 
+        }
+
+        nr_handles = nr_handles / sizeof(EFI_HANDLE);
+    } else {
+        // Why did this work with size 0?
         return status;
     }
 
@@ -36,7 +57,7 @@ EFI_STATUS init_graphics(OUT gfx_info_t *gfx_info)
         EFI_GRAPHICS_OUTPUT_MODE_INFORMATION *info = NULL;
         UINTN size;
 
-        status = uefi_call_wrapper(BS->HandleProtocol, 3, handle, &gEfiGraphicsOutputProtocolGuid, (void **) &gfx);
+        status = gBS->HandleProtocol(handle, &gEfiGraphicsOutputProtocolGuid, (void **) &gfx);
         if (EFI_ERROR(status)) {
             continue;
         }
@@ -47,13 +68,13 @@ EFI_STATUS init_graphics(OUT gfx_info_t *gfx_info)
             continue;
         }
 
-        status = uefi_call_wrapper(gfx->SetMode, 2, gfx, mode);
+        status = gfx->SetMode(gfx, mode);
         if (EFI_ERROR(status)) {
             Print(L"Failed to set mode for handle %d mode %d\n", iter, mode);
             break;
         }
 
-        status = uefi_call_wrapper(gfx->QueryMode, 4, gfx, mode, &size, &info);
+        status = gfx->QueryMode(gfx, mode, &size, &info);
         if (EFI_ERROR(status)) {
             Print(L"Failed to read set mode for handle %d mode %d\n", iter, mode);
             if (info) {
@@ -101,11 +122,13 @@ EFI_STATUS find_mode(EFI_GRAPHICS_OUTPUT_PROTOCOL *gfx, OUT UINT32 *mode)
     Print(L"Entering find mode, gfx: %X\n", gfx);
 
     // Get the base mode for comparison against later
-    status = uefi_call_wrapper(gfx->QueryMode, 4, gfx, gfx->Mode->Mode, &size, &base_info);
+    status = gfx->QueryMode(gfx, gfx->Mode->Mode, &size, &base_info);
     if (EFI_ERROR(status)) {
         Print(L"Query for mode %d failed\n", gfx->Mode->Mode);
-        if (base_info) FreePool(base_info);
-        base_info = NULL;
+        if (base_info) {
+            FreePool(base_info);
+            base_info = NULL;
+        }
         return status;
     }
 
@@ -113,7 +136,7 @@ EFI_STATUS find_mode(EFI_GRAPHICS_OUTPUT_PROTOCOL *gfx, OUT UINT32 *mode)
     *mode = gfx->Mode->Mode;
 
     for (UINT32 iter = 0; iter < gfx->Mode->MaxMode; iter++) {
-        status = uefi_call_wrapper(gfx->QueryMode, 4, gfx, iter, &size, &info);
+        status = gfx->QueryMode(gfx, iter, &size, &info);
         if (EFI_ERROR(status)) {
             Print(L"Query for mode %d failed\n", iter);
             if (info) FreePool(info);

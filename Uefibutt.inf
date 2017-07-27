@@ -10,13 +10,16 @@
   FILE_GUID                     = 7112c34d-c99c-4e6f-baf9-9ee3c6da5088
   MODULE_TYPE                   = UEFI_APPLICATION
   VERSION_STRING                = 0.1
-  ENTRY_POINT                   = UefiMain
+  ENTRY_POINT                   = efi_main
 
 [Packages]
   MdePkg/MdePkg.dec
   Uefibutt/Uefibutt.dec
 
 [LibraryCLasses]
+  BaseLib
+  BaseMemoryLib
+  MemoryAllocationLib
   UefiApplicationEntryPoint
   UefiLib
 
@@ -24,17 +27,15 @@
   boot.c
   graphics.c
   util.c
-  include/graphics.h
-  include/util.h
-  include/guid.h
-  include/info.h
+  graphics.h
+  util.h
+  info.h
 
 [Guids]
+  gUefibuttGuid
 
 [Ppis]
 
 [Protocols]
+  gEfiGraphicsOutputProtocolGuid
 
-[FeaturePcd]
-
-[Pcd]

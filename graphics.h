@@ -4,13 +4,15 @@
 #ifndef GRAPHICS_H
 #define GRAPHICS_H
 
-#include <efi.h>
-#include <efilib.h>
+#include <Uefi.h>
+#include <Library/UefiLib.h>
 
 #include "info.h"
 
 #define DESIRED_H_RES 1024
 #define DESIRED_V_RES 768
+
+extern EFI_GUID gEfiGraphicsOutputProtocolGuid;
 
 EFI_STATUS init_graphics(OUT gfx_info_t *gfx_info);
 

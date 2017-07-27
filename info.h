@@ -4,8 +4,10 @@
 #ifndef INFO_H
 #define INFO_H
 
-#include <efi.h>
-#include <efilib.h>
+#include <Uefi.h>
+#include <Library/UefiLib.h>
+
+#define EFI_MAXIMUM_VARIABLE_SIZE   1024
 
 typedef struct mem_map {
     EFI_MEMORY_DESCRIPTOR   *memory_map;

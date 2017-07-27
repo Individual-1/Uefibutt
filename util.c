@@ -1,9 +1,9 @@
-#include <efi.h>
-#include <efilib.h>
+#include <Uefi.h>
+#include <Library/UefiLib.h>
+#include <Library/MemoryAllocationLib.h>
+#include <Library/UefiRuntimeServicesTableLib.h>
 
 #include "util.h"
-
-extern EFI_GUID gUefibuttGuid;
 
 const CHAR16 *mem_types[] = {
     L"EfiReservedMemoryType",
@@ -37,7 +37,6 @@ static const CHAR16 * mem_type_to_str(UINT32 type)
 void print_memory_map(mem_map_t *mem_map)
 {
     EFI_MEMORY_DESCRIPTOR *cur;
-    void *end;
 
     Print(L"Memory map info\n");
     Print(L"Number of Entries: %d\n", mem_map->num_entries);
@@ -52,7 +51,7 @@ void print_memory_map(mem_map_t *mem_map)
         UINTN entry_size = cur->NumberOfPages * 4096;
 
         // Something is wrong, type doesn't print properly if I try to read it from the array
-        Print(L"Type: %d Size: %d\n", cur->Type, entry_size);
+        Print(L"Type: %s Size: %d\n", mem_type_to_str(cur->Type), entry_size);
         Print(L"Attribute: 0x%x\n", cur->Attribute);
         Print(L"Physical: %016llx-%016llx\n", cur->PhysicalStart, cur->PhysicalStart + entry_size);
         Print(L" Virtual: %016llx-%016llx\n", cur->VirtualStart, cur->VirtualStart + entry_size);
@@ -60,9 +59,6 @@ void print_memory_map(mem_map_t *mem_map)
 
         cur = (void  *) cur + mem_map->desc_size;
     }
-
-    CHAR16 *test = mem_types[1];
-    Print(L"Test: %s\n", test);
 
     return;
 }
@@ -80,7 +76,7 @@ EFI_STATUS efivar_set(CHAR16 *name, UINTN *size, VOID *data, BOOLEAN persist)
         return EFI_INVALID_PARAMETER;
     }
 
-    return uefi_call_wrapper(RT->SetVariable, 5, name, &efi_guid, attr, *size, data);
+    return gRT->SetVariable(name, &gUefibuttGuid, attr, *size, data);
 }
 
 // Pass in an empty ptr for size and data, they will be populated by the function
@@ -94,15 +90,14 @@ EFI_STATUS efivar_get(CHAR16 *name, OUT UINTN *size, OUT VOID **data)
 
     // We don't know how big the resulting efivar will be, will this work?
     // try a failed read to get correct size, will it fail with 0?
-    status = uefi_call_wrapper(RT->GetVariable, 5, name, &efi_guid, NULL, size, &dump); 
-    print_efi_status(status);
+    status = gRT->GetVariable(name, &gUefibuttGuid, NULL, size, &dump); 
     if (status == EFI_BUFFER_TOO_SMALL) {
-        *data = AllocatePool(*size);
+        *data = AllocateZeroPool(*size);
         if (!*data) {
             return EFI_OUT_OF_RESOURCES;
         }
 
-        status = uefi_call_wrapper(RT->GetVariable, 5, name, &efi_guid, NULL, size, *data);
+        status = gRT->GetVariable(name, &gUefibuttGuid, NULL, size, *data);
 
         if (status != EFI_SUCCESS) {
             FreePool(*data);
