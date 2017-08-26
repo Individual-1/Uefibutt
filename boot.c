@@ -48,9 +48,6 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
     EFI_STATUS status;
     EFI_INPUT_KEY key;
     UINTN size;
-
-    // init efi lib for use gnu-efi thing
-    //InitializeLib(ImageHandle, SystemTable);
     
     // Load up global variables
     if (!(gST = SystemTable)) {
@@ -100,11 +97,17 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
     //TODO error handling
     
     /*
+     * OLD: ignore this, left it here for now for reference
      * Now that we have exited bootservices, we have a much more limited set of commands available
      * At this point, we should have the following set up:
      *  * Paging
      *  * Non-identity mapping
      *  * GDT/IDT for our paging context
+     */
+
+    /*
+     * Now that we have exited boot services, lets unpack part of the kernel from our archive and jump to it
+     * letting it set up IDT/GDT. Be sure to pass it some things like gfx_info and mem_map though
      */
     
     status = gRT->SetVirtualAddressMap(mem_map.num_entries, mem_map.desc_size, mem_map.desc_version, mem_map.memory_map);

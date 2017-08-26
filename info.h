@@ -14,7 +14,7 @@ typedef struct mem_map {
     UINT32                  desc_version;
     UINTN                   desc_size;
     UINTN                   map_key;
-    UINTN                   num_entries; // This is a gnu-efi LibMemoryMap thing, UEFI function returns size in bytes, gnu-efi divides that by desc_size to get number of entries
+    UINTN                   num_entries; 
 } mem_map_t;
 
 typedef struct gfx_info {
