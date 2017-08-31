@@ -101,6 +101,9 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
 
     status = efivar_set(L"test", &ts, str, FALSE);
 
+    // load in kernel from tar archive on device then jump parse ELF headers and put it somewhere expected in memory
+    //TODO, LoadImage, see GRUB example
+
     status = gBS->ExitBootServices(ImageHandle, mem_map.map_key);
     //TODO error handling
     
