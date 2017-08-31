@@ -107,3 +107,12 @@ EFI_STATUS efivar_get(CHAR16 *name, OUT UINTN *size, OUT VOID **data)
 
     return status;
 }
+
+void efi_waitforkey()
+{
+    EFI_INPUT_KEY key;
+    EFI_STATUS status;
+
+    gST->ConIn->Reset(gST->ConIn, FALSE);
+    while ((status = gST->ConIn->ReadKeyStroke(gST->ConIn, &key)) == EFI_NOT_READY) ;
+}

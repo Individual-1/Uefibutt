@@ -7,12 +7,17 @@
 #include <Library/UefiRuntimeServicesTableLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 
+// Multiprocessing includes
+#include <Pi/PiDxeCis.h>
+#include <Protocol/MpService.h>
+
 #include "graphics.h"
 #include "info.h"
 #include "util.h"
 
 mem_map_t mem_map;
 gfx_info_t gfx_info;
+
 
 /*
  * EFI stub
@@ -46,8 +51,9 @@ gfx_info_t gfx_info;
 EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable) 
 {
     EFI_STATUS status;
-    EFI_INPUT_KEY key;
     UINTN size;
+
+    EFI_MP_SERVICES_PROTOCOL *mps;
     
     // Load up global variables
     if (!(gST = SystemTable)) {
@@ -61,12 +67,6 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
     if (!(gRT = SystemTable->RuntimeServices)) {
         return EFI_LOAD_ERROR;
     }
-
-    Print(L"Press to do stuff\n");
-
-    // test code please ignore
-    gST->ConIn->Reset(gST->ConIn, FALSE);
-    while ((status = gST->ConIn->ReadKeyStroke(gST->ConIn, &key)) == EFI_NOT_READY) ;
 
     // Grow buffer to fit memory map
     size = 0;
@@ -82,6 +82,14 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
         mem_map.num_entries = size / mem_map.desc_size;
     } else {
         // Something is wrong, just exit
+        return status;
+    }
+
+    // init pi mpservices
+    status = gBS->LocateProtocol(&gEfiMpServiceProtocolGuid, NULL, (void **) &mps);
+    if (EFI_ERROR(status)) {
+        Print(L"Failed to locate MPService");
+        efi_waitforkey();
         return status;
     }
 

@@ -6,6 +6,7 @@
 
 #include <Uefi.h>
 #include <Library/UefiLib.h>
+#include <Library/UefiBootServicesTableLib.h>
 
 #define EFI_MAXIMUM_VARIABLE_SIZE   1024
 
