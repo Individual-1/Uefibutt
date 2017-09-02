@@ -40,7 +40,7 @@ EFI_STATUS EFIAPI elf_load_mem(void *elf_bin)
         switch (phdr->p_type) {
             case PT_LOAD: {
                 // 4KB pages, get number of pages this segment takes, rounding up
-                UINT64 pages = (phdr->p_memsz + 4096 - 1) / 4096;
+                UINT64 pages = (phdr->p_memsz + 4096 - 1) & (-4096);
                 EFI_PHYSICAL_ADDRESS segment = phdr->p_paddr;
                 gBS->AllocatePages(AllocateAddress, EfiLoaderData, pages, &segment);
                 gBS->CopyMem((void *) segment, (void *) ((UINT8 *) elf_bin + phdr->p_offset), phdr->p_filesz);
@@ -109,7 +109,7 @@ EFI_STATUS EFIAPI elf_load_file(EFI_FILE *elf_file)
         switch (phdr->p_type) {
             case PT_LOAD: {
                 // 4KB pages, get number of pages this segment takes, rounding up
-                UINT64 pages = (phdr->p_memsz + 4096 - 1) / 4096;
+                UINT64 pages = (phdr->p_memsz + 4096 - 1) & (-4096);
                 EFI_PHYSICAL_ADDRESS segment = phdr->p_paddr;
                 UINTN lsz = 0;
                 gBS->AllocatePages(AllocateAddress, EfiLoaderData, pages, &segment);
