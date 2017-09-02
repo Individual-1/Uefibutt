@@ -41,3 +41,5 @@
 [Protocols]
   gEfiGraphicsOutputProtocolGuid
   gEfiMpServiceProtocolGuid
+  gEfiSimpleFileSystemProtocolGuid
+  gEfiLoadedImageProtocolGuid

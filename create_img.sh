@@ -15,8 +15,15 @@ fi
 # Create img file
 target="$1"
 
-dd if=/dev/zero of=$target bs=1M count=33
+dd if=/dev/zero of=$target bs=1M count=128
 mkfs.vfat -F 32 $target
 mmd -i $target ::/EFI
 mmd -i $target ::/EFI/BOOT
+mmd -i $target ::/TEST
 mcopy -i $target $UEFIBUTT/Uefibutt.efi ::/EFI/BOOT/BOOTX64.EFI
+
+mcopy -v -i $target $WORKSPACE/Uefibutt/extras/* ::/TEST
+#for file in $WORKSPACE/Uefibutt/extras/*; do 
+#    mcopy -v -i $target $file ::/
+#done
+

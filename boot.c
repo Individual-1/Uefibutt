@@ -7,6 +7,14 @@
 #include <Library/UefiRuntimeServicesTableLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 
+// ACPI
+#include <Guid/Acpi.h>
+
+// Filesystem
+#include <Protocol/SimpleFileSystem.h>
+#include <Protocol/LoadedImage.h>
+#include <Guid/FileInfo.h>
+
 // Multiprocessing includes
 #include <Pi/PiDxeCis.h>
 #include <Protocol/MpService.h>
@@ -17,7 +25,7 @@
 
 mem_map_t mem_map;
 gfx_info_t gfx_info;
-
+void *acpi_table = NULL;
 
 /*
  * EFI stub
@@ -68,7 +76,10 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
         return EFI_LOAD_ERROR;
     }
 
-    // Grow buffer to fit memory map
+    /*
+     * Read memory map from UEFI
+     */
+
     size = 0;
     status = gBS->GetMemoryMap(&size, mem_map.memory_map, &mem_map.map_key, &mem_map.desc_size, &mem_map.desc_version);
     if (status == EFI_BUFFER_TOO_SMALL) {
@@ -85,15 +96,35 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
         return status;
     }
 
-    // init pi mpservices
+    /*
+     * Load acpi tables from firmware
+     */
+    {
+        // How do I EDK2
+        EFI_GUID gEfiAcpiTableGuid = EFI_ACPI_TABLE_GUID;
+        for (size = 0; size < SystemTable->NumberOfTableEntries; size++) {
+            EFI_CONFIGURATION_TABLE *cfg = &(gST->ConfigurationTable[size]);
+            if (memcmp(&cfg->VendorGuid, &gEfiAcpiTableGuid, sizeof(cfg->VendorGuid)) == 0) {
+                // Matches the ACPI table guid
+                acpi_table = cfg->VendorTable;
+                break;
+            }
+        }
+    }
+    /*
+     * Load Pi MpService protocol
+     */
+
     status = gBS->LocateProtocol(&gEfiMpServiceProtocolGuid, NULL, (void **) &mps);
     if (EFI_ERROR(status)) {
         Print(L"Failed to locate MPService");
-        efi_waitforkey();
         return status;
     }
 
-    // init graphics
+    /*
+     * Initialize graphics
+     */
+
     status = init_graphics(&gfx_info);
     
     CHAR16 str[] = L"string";
@@ -101,8 +132,73 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
 
     status = efivar_set(L"test", &ts, str, FALSE);
 
-    // load in kernel from tar archive on device then jump parse ELF headers and put it somewhere expected in memory
-    //TODO, LoadImage, see GRUB example
+    /*
+     * load in kernel from filesystem then parse ELF headers and relocate it into memory
+     */
+
+    CHAR16 kpath[] = L"\\test\\info.h";
+    void *kernel = NULL;
+
+    {
+        EFI_LOADED_IMAGE_PROTOCOL *ld_image = NULL;
+        EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *fs = NULL;
+        EFI_FILE *root = NULL;
+        EFI_FILE *kfile = NULL;
+        EFI_FILE_INFO *finfo = NULL;
+        EFI_GUID gEfiFileInfoGuid = EFI_FILE_INFO_ID;
+
+        status = gBS->HandleProtocol(ImageHandle, &gEfiLoadedImageProtocolGuid, (void **) &ld_image);
+        if (EFI_ERROR(status)) {
+            Print(L"Failed to load LoadedImageProtocol");
+            efi_waitforkey();
+            return status;
+        }
+
+        status = gBS->HandleProtocol(ld_image->DeviceHandle, &gEfiSimpleFileSystemProtocolGuid, (void **) &fs);
+        if (EFI_ERROR(status)) {
+            Print(L"Failed to load SimpleFileSystemProtocol");
+            efi_waitforkey();
+            return status;
+        }
+
+        fs->OpenVolume(fs, &root);
+
+        status = root->Open(root, &kfile, kpath, EFI_FILE_MODE_READ, EFI_FILE_READ_ONLY);
+        if (EFI_ERROR(status)) {
+            Print(L"Failed to open file %s", kpath);
+            efi_waitforkey();
+            return status;
+        }
+
+        size = 0;
+        status = kfile->GetInfo(kfile, &gEfiFileInfoGuid, &size, NULL);
+        if (status == EFI_BUFFER_TOO_SMALL) {
+            finfo = AllocateZeroPool(size);
+            status = kfile->GetInfo(kfile, &gEfiFileInfoGuid, &size, finfo);
+            if (EFI_ERROR(status)) {
+                Print(L"GetInfo failed");
+                efi_waitforkey();
+                return status;
+            }
+        } else {
+            // Something is wrong, just exit
+            efi_waitforkey();
+            return status;
+        }
+        size = finfo->FileSize;
+        kernel = AllocateZeroPool(size);
+        status = kfile->Read(kfile, &size, kernel);
+        if (EFI_ERROR(status)) {
+            Print(L"Read failed");
+            efi_waitforkey();
+            return status;
+        }
+    }
+
+    /*
+     * At this point, kernel is a buffer containing the file we wanted loaded
+     * parse it and relocate it as needed, then exit boot services and jump to it
+     */
 
     status = gBS->ExitBootServices(ImageHandle, mem_map.map_key);
     //TODO error handling

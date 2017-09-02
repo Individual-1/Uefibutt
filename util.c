@@ -22,6 +22,22 @@ const CHAR16 *mem_types[] = {
     L"EfiPalCode"
 };
 
+int memcmp(const void *a, const void *b, UINTN size) {
+    const UINT8 *ap = a;
+    const UINT8 *bp = b;
+
+    for (UINTN i = 0; i < size; i++) {
+        if (ap[i] < bp[i]) {
+            return -1;
+        }
+        else if (ap[i] > bp[i]) {
+            return 1;    
+        }
+    }
+
+    return 0;
+}
+
 // Make a little helper function in case the firmware returns some weird type number
 static const CHAR16 * mem_type_to_str(UINT32 type)
 {
@@ -61,6 +77,15 @@ void print_memory_map(mem_map_t *mem_map)
     }
 
     return;
+}
+
+void efi_waitforkey()
+{
+    EFI_INPUT_KEY key;
+    EFI_STATUS status;
+
+    gST->ConIn->Reset(gST->ConIn, FALSE);
+    while ((status = gST->ConIn->ReadKeyStroke(gST->ConIn, &key)) == EFI_NOT_READY) ;
 }
 
 EFI_STATUS efivar_set(CHAR16 *name, UINTN *size, VOID *data, BOOLEAN persist)
@@ -108,11 +133,3 @@ EFI_STATUS efivar_get(CHAR16 *name, OUT UINTN *size, OUT VOID **data)
     return status;
 }
 
-void efi_waitforkey()
-{
-    EFI_INPUT_KEY key;
-    EFI_STATUS status;
-
-    gST->ConIn->Reset(gST->ConIn, FALSE);
-    while ((status = gST->ConIn->ReadKeyStroke(gST->ConIn, &key)) == EFI_NOT_READY) ;
-}
