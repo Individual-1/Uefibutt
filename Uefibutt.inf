@@ -16,7 +16,7 @@
   MdePkg/MdePkg.dec
   Uefibutt/Uefibutt.dec
 
-[LibraryCLasses]
+[LibraryClasses]
   BaseLib
   BaseMemoryLib
   MemoryAllocationLib
@@ -28,6 +28,7 @@
   graphics.c
   util.c
   tar.c
+  loadelf.c
   graphics.h
   util.h
   tar.h

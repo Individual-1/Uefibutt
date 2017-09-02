@@ -19,6 +19,7 @@
 #include <Pi/PiDxeCis.h>
 #include <Protocol/MpService.h>
 
+#include "loadelf.h"
 #include "graphics.h"
 #include "info.h"
 #include "util.h"
@@ -26,6 +27,9 @@
 mem_map_t mem_map;
 gfx_info_t gfx_info;
 void *acpi_table = NULL;
+
+// define this to copy full elf into memory then parse, unset to read straight from file
+#define USE_BUFFER
 
 /*
  * EFI stub
@@ -137,26 +141,25 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
      */
 
     CHAR16 kpath[] = L"\\test\\info.h";
-    void *kernel = NULL;
-
     {
         EFI_LOADED_IMAGE_PROTOCOL *ld_image = NULL;
         EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *fs = NULL;
         EFI_FILE *root = NULL;
         EFI_FILE *kfile = NULL;
         EFI_FILE_INFO *finfo = NULL;
+        void *kernel = NULL;
         EFI_GUID gEfiFileInfoGuid = EFI_FILE_INFO_ID;
 
         status = gBS->HandleProtocol(ImageHandle, &gEfiLoadedImageProtocolGuid, (void **) &ld_image);
         if (EFI_ERROR(status)) {
-            Print(L"Failed to load LoadedImageProtocol");
+            Print(L"Failed to load LoadedImageProtocol\n");
             efi_waitforkey();
             return status;
         }
 
         status = gBS->HandleProtocol(ld_image->DeviceHandle, &gEfiSimpleFileSystemProtocolGuid, (void **) &fs);
         if (EFI_ERROR(status)) {
-            Print(L"Failed to load SimpleFileSystemProtocol");
+            Print(L"Failed to load SimpleFileSystemProtocol\n");
             efi_waitforkey();
             return status;
         }
@@ -165,18 +168,19 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
 
         status = root->Open(root, &kfile, kpath, EFI_FILE_MODE_READ, EFI_FILE_READ_ONLY);
         if (EFI_ERROR(status)) {
-            Print(L"Failed to open file %s", kpath);
+            Print(L"Failed to open file %s\n", kpath);
             efi_waitforkey();
             return status;
         }
 
+#ifdef USE_BUFFER
         size = 0;
         status = kfile->GetInfo(kfile, &gEfiFileInfoGuid, &size, NULL);
         if (status == EFI_BUFFER_TOO_SMALL) {
             finfo = AllocateZeroPool(size);
             status = kfile->GetInfo(kfile, &gEfiFileInfoGuid, &size, finfo);
             if (EFI_ERROR(status)) {
-                Print(L"GetInfo failed");
+                Print(L"GetInfo failed\n");
                 efi_waitforkey();
                 return status;
             }
@@ -189,16 +193,36 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
         kernel = AllocateZeroPool(size);
         status = kfile->Read(kfile, &size, kernel);
         if (EFI_ERROR(status)) {
-            Print(L"Read failed");
+            Print(L"Read failed\n");
             efi_waitforkey();
             return status;
         }
-    }
 
-    /*
-     * At this point, kernel is a buffer containing the file we wanted loaded
-     * parse it and relocate it as needed, then exit boot services and jump to it
-     */
+        FreePool(finfo);
+        finfo = NULL;
+
+        status = elf_verify_hdr_mem(kernel);
+        if (EFI_ERROR(status)) {
+            Print(L"ELF failed to verify\n");
+            FreePool(kernel);
+            kernel = NULL;
+            return status;
+        }
+
+        elf_load_mem(kernel);
+        FreePool(kernel);
+        kernel = NULL;
+#else
+        status = elf_verify_hdr_file(kfile);
+        if (EFI_ERROR(status)) {
+            Print(L"ELF failed to verify\n");
+            return status;
+        }
+
+        elf_load_file(kfile);
+#endif
+
+    }
 
     status = gBS->ExitBootServices(ImageHandle, mem_map.map_key);
     //TODO error handling
