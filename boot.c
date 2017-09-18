@@ -81,63 +81,9 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
     }
 
     /*
-     * Read memory map from UEFI
-     */
-
-    size = 0;
-    status = gBS->GetMemoryMap(&size, mem_map.memory_map, &mem_map.map_key, &mem_map.desc_size, &mem_map.desc_version);
-    if (status == EFI_BUFFER_TOO_SMALL) {
-        // This is expected, add a little headroom on the size requested and allocate pool
-        size += SIZE_1KB;
-        mem_map.memory_map = AllocateZeroPool(size);
-        status = gBS->GetMemoryMap(&size, mem_map.memory_map, &mem_map.map_key, &mem_map.desc_size, &mem_map.desc_version);
-        if (EFI_ERROR(status)) {
-            return status;
-        }
-        mem_map.num_entries = size / mem_map.desc_size;
-    } else {
-        // Something is wrong, just exit
-        return status;
-    }
-
-    /*
-     * Load acpi tables from firmware
-     */
-    {
-        // How do I EDK2
-        EFI_GUID gEfiAcpiTableGuid = EFI_ACPI_TABLE_GUID;
-        for (size = 0; size < SystemTable->NumberOfTableEntries; size++) {
-            EFI_CONFIGURATION_TABLE *cfg = &(gST->ConfigurationTable[size]);
-            if (memcmp(&cfg->VendorGuid, &gEfiAcpiTableGuid, sizeof(cfg->VendorGuid)) == 0) {
-                // Matches the ACPI table guid
-                acpi_table = cfg->VendorTable;
-                break;
-            }
-        }
-    }
-    /*
-     * Load Pi MpService protocol
-     */
-
-    status = gBS->LocateProtocol(&gEfiMpServiceProtocolGuid, NULL, (void **) &mps);
-    if (EFI_ERROR(status)) {
-        Print(L"Failed to locate MPService");
-        return status;
-    }
-
-    /*
-     * Initialize graphics
-     */
-
-    status = init_graphics(&gfx_info);
-    
-    CHAR16 str[] = L"string";
-    UINTN ts = sizeof(str);
-
-    status = efivar_set(L"test", &ts, str, FALSE);
-
-    /*
      * load in kernel from filesystem then parse ELF headers and relocate it into memory
+     * do this first so we don't run into potential issues where our desired memory location
+     * is taken
      */
 
     CHAR16 kpath[] = L"\\test\\info.h";
@@ -221,8 +167,63 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
 
         elf_load_file(kfile);
 #endif
-
     }
+
+    /*
+     * Read memory map from UEFI
+     */
+
+    size = 0;
+    status = gBS->GetMemoryMap(&size, mem_map.memory_map, &mem_map.map_key, &mem_map.desc_size, &mem_map.desc_version);
+    if (status == EFI_BUFFER_TOO_SMALL) {
+        // This is expected, add a little headroom on the size requested and allocate pool
+        size += SIZE_1KB;
+        mem_map.memory_map = AllocateZeroPool(size);
+        status = gBS->GetMemoryMap(&size, mem_map.memory_map, &mem_map.map_key, &mem_map.desc_size, &mem_map.desc_version);
+        if (EFI_ERROR(status)) {
+            return status;
+        }
+        mem_map.num_entries = size / mem_map.desc_size;
+    } else {
+        // Something is wrong, just exit
+        return status;
+    }
+
+    /*
+     * Load acpi tables from firmware
+     */
+    {
+        // How do I EDK2
+        EFI_GUID gEfiAcpiTableGuid = EFI_ACPI_TABLE_GUID;
+        for (size = 0; size < SystemTable->NumberOfTableEntries; size++) {
+            EFI_CONFIGURATION_TABLE *cfg = &(gST->ConfigurationTable[size]);
+            if (memcmp(&cfg->VendorGuid, &gEfiAcpiTableGuid, sizeof(cfg->VendorGuid)) == 0) {
+                // Matches the ACPI table guid
+                acpi_table = cfg->VendorTable;
+                break;
+            }
+        }
+    }
+    /*
+     * Load Pi MpService protocol
+     */
+
+    status = gBS->LocateProtocol(&gEfiMpServiceProtocolGuid, NULL, (void **) &mps);
+    if (EFI_ERROR(status)) {
+        Print(L"Failed to locate MPService");
+        return status;
+    }
+
+    /*
+     * Initialize graphics
+     */
+
+    status = init_graphics(&gfx_info);
+    
+    CHAR16 str[] = L"string";
+    UINTN ts = sizeof(str);
+
+    status = efivar_set(L"test", &ts, str, FALSE);
 
     status = gBS->ExitBootServices(ImageHandle, mem_map.map_key);
     //TODO error handling
