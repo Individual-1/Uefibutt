@@ -10,6 +10,12 @@
 #include "info.h"
 #include "util.h"
 
+/*
+ * TODO:
+ * * Implement relocations
+ * * 
+ */
+
 EFI_STATUS EFIAPI elf_verify_hdr_mem(void *elf_bin) 
 {
     Elf64_Ehdr *hdr = (Elf64_Ehdr *) elf_bin;
@@ -28,11 +34,14 @@ EFI_STATUS EFIAPI elf_verify_hdr_mem(void *elf_bin)
     return EFI_SUCCESS;
 }
 
-EFI_STATUS EFIAPI elf_load_mem(void *elf_bin)
+// Parse the ELF in memory and load it into the desired memory sections
+// Returns the entry point address
+EFI_PHYSICAL_ADDRESS EFIAPI elf_load_mem(void *elf_bin)
 {
     Elf64_Ehdr *hdr = (Elf64_Ehdr *) elf_bin;
     Elf64_Phdr *phdrs = (Elf64_Phdr *) ((UINT8 *) elf_bin + hdr->e_phoff);
     Elf64_Phdr *phdr = NULL;
+    EFI_STATUS status;
 
     for (phdr = phdrs; 
             (UINT8 *) phdr < (UINT8 *) phdrs + (hdr->e_phnum * hdr->e_phentsize); 
@@ -42,14 +51,20 @@ EFI_STATUS EFIAPI elf_load_mem(void *elf_bin)
                 // 4KB pages, get number of pages this segment takes, rounding up
                 UINT64 pages = (phdr->p_memsz + 4096 - 1) & (-4096);
                 EFI_PHYSICAL_ADDRESS segment = phdr->p_paddr;
-                gBS->AllocatePages(AllocateAddress, EfiLoaderData, pages, &segment);
+                status = gBS->AllocatePages(AllocateAddress, EfiLoaderData, pages, &segment);
+
+                if (EFI_ERROR(status)) {
+                    Print(L"Failed to allocate pages for elf load");
+                    return NULL;
+                }
+
                 gBS->CopyMem((void *) segment, (void *) ((UINT8 *) elf_bin + phdr->p_offset), phdr->p_filesz);
                 break;
             }
         }
     }
 
-    return EFI_SUCCESS;
+    return (EFI_PHYSICAL_ADDRESS) hdr->e_entry;
 }
 
 EFI_STATUS EFIAPI elf_verify_hdr_file(EFI_FILE *elf_file) 
@@ -82,13 +97,15 @@ EFI_STATUS EFIAPI elf_verify_hdr_file(EFI_FILE *elf_file)
     return EFI_SUCCESS;
 }
 
-EFI_STATUS EFIAPI elf_load_file(EFI_FILE *elf_file)
+// Returns entry point address
+EFI_PHYSICAL_ADDRESS EFIAPI elf_load_file(EFI_FILE *elf_file)
 {
     Elf64_Ehdr hdr;
     UINT64 pos;
     Elf64_Phdr *phdrs = NULL;
     Elf64_Phdr *phdr = NULL;
     UINTN size;
+    EFI_STATUS status;
 
     // Get current position
     elf_file->GetPosition(elf_file, &pos);
@@ -112,8 +129,13 @@ EFI_STATUS EFIAPI elf_load_file(EFI_FILE *elf_file)
                 UINT64 pages = (phdr->p_memsz + 4096 - 1) & (-4096);
                 EFI_PHYSICAL_ADDRESS segment = phdr->p_paddr;
                 UINTN lsz = 0;
-                gBS->AllocatePages(AllocateAddress, EfiLoaderData, pages, &segment);
+                status = gBS->AllocatePages(AllocateAddress, EfiLoaderData, pages, &segment);
                 
+                if (EFI_ERROR(status)) {
+                    Print(L"Failed to allocate pages for elf load");
+                    return NULL;
+                }
+
                 elf_file->SetPosition(elf_file, phdr->p_offset);
                 lsz = phdr->p_filesz;
                 elf_file->Read(elf_file, &lsz, (void *) segment);
@@ -125,5 +147,5 @@ EFI_STATUS EFIAPI elf_load_file(EFI_FILE *elf_file)
     // Reset position
     elf_file->SetPosition(elf_file, pos);
 
-    return EFI_SUCCESS;
+    return (EFI_PHYSICAL_ADDRESS) hdr.e_entry;
 }

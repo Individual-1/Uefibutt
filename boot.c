@@ -28,6 +28,9 @@ mem_map_t mem_map;
 gfx_info_t gfx_info;
 void *acpi_table = NULL;
 
+// Entry point for kernel, pass it some args
+typedef void entry(mem_map_t *, gfx_info_t *);
+
 // define this to copy full elf into memory then parse, unset to read straight from file
 #define USE_BUFFER
 
@@ -95,6 +98,7 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
         EFI_FILE_INFO *finfo = NULL;
         void *kernel = NULL;
         EFI_GUID gEfiFileInfoGuid = EFI_FILE_INFO_ID;
+        EFI_PHYSICAL_ADDRESS entry_point = NULL;
 
         status = gBS->HandleProtocol(ImageHandle, &gEfiLoadedImageProtocolGuid, (void **) &ld_image);
         if (EFI_ERROR(status)) {
@@ -155,7 +159,12 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
             return status;
         }
 
-        elf_load_mem(kernel);
+        entry_point = elf_load_mem(kernel);
+        if (!entry_point) {
+            Print(L"Elf failed to load");
+            return EFI_OUT_OF_RESOURCES;
+        }
+
         FreePool(kernel);
         kernel = NULL;
 #else
@@ -165,7 +174,11 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
             return status;
         }
 
-        elf_load_file(kfile);
+        entry_point = elf_load_file(kfile);
+        if (!entry_point) {
+            Print(L"Elf failed to load");
+            return EFI_OUT_OF_RESOURCES;
+        }
 #endif
     }
 
@@ -247,6 +260,12 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
 
     //print_memory_map(&mem_map);
     draw_triangle(&gfx_info);
+
+    if (entry_point)
+    {
+        entry *ep = (entry *)entry_point;
+        ep(&mem_map, &gfx_info);
+    }
 
     return status;
 }
