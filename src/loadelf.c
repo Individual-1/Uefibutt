@@ -55,7 +55,7 @@ EFI_PHYSICAL_ADDRESS EFIAPI elf_load_mem(void *elf_bin)
 
                 if (EFI_ERROR(status)) {
                     Print(L"Failed to allocate pages for elf load");
-                    return NULL;
+                    return 0;
                 }
 
                 gBS->CopyMem((void *) segment, (void *) ((UINT8 *) elf_bin + phdr->p_offset), phdr->p_filesz);
@@ -133,7 +133,7 @@ EFI_PHYSICAL_ADDRESS EFIAPI elf_load_file(EFI_FILE *elf_file)
                 
                 if (EFI_ERROR(status)) {
                     Print(L"Failed to allocate pages for elf load");
-                    return NULL;
+                    return 0;
                 }
 
                 elf_file->SetPosition(elf_file, phdr->p_offset);

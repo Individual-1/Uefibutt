@@ -1,0 +1,46 @@
+## @file
+# 
+# UEFI boot stub
+#
+##
+
+[Defines]
+  INF_VERSION                   = 1.26
+  BASE_NAME                     = Uefibutt
+  FILE_GUID                     = 7112c34d-c99c-4e6f-baf9-9ee3c6da5088
+  MODULE_TYPE                   = UEFI_APPLICATION
+  VERSION_STRING                = 0.1
+  ENTRY_POINT                   = efi_main
+
+[Packages]
+  MdePkg/MdePkg.dec
+  Uefibutt/Uefibutt.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  MemoryAllocationLib
+  UefiApplicationEntryPoint
+  UefiLib
+
+[Sources]
+  boot.c
+  graphics.c
+  util.c
+  tar.c
+  loadelf.c
+  graphics.h
+  util.h
+  tar.h
+  info.h
+
+[Guids]
+  gUefibuttGuid
+
+[Ppis]
+
+[Protocols]
+  gEfiGraphicsOutputProtocolGuid
+  gEfiMpServiceProtocolGuid
+  gEfiSimpleFileSystemProtocolGuid
+  gEfiLoadedImageProtocolGuid

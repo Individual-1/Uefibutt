@@ -89,6 +89,7 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
      * is taken
      */
 
+    EFI_PHYSICAL_ADDRESS entry_point = 0;
     CHAR16 kpath[] = L"\\test\\info.h";
     {
         EFI_LOADED_IMAGE_PROTOCOL *ld_image = NULL;
@@ -98,7 +99,6 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
         EFI_FILE_INFO *finfo = NULL;
         void *kernel = NULL;
         EFI_GUID gEfiFileInfoGuid = EFI_FILE_INFO_ID;
-        EFI_PHYSICAL_ADDRESS entry_point = NULL;
 
         status = gBS->HandleProtocol(ImageHandle, &gEfiLoadedImageProtocolGuid, (void **) &ld_image);
         if (EFI_ERROR(status)) {

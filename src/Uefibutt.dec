@@ -1,0 +1,16 @@
+## @file 
+#
+# dec
+#
+##
+
+[Defines]
+  DEC_SPECIFICATION              = 1.26
+  PACKAGE_NAME                   = Uefibutt
+  PACKAGE_GUID                   = 6efe9a16-199d-4046-9ae6-f3b015fba8fb
+  PACKAGE_VERSION                = 0.1
+
+[Includes]
+
+[Guids]
+  gUefibuttGuid                 = { 0x6d656d65, 0x6c6f, 0x7264, { 0x6d, 0x65, 0x6d, 0x65, 0x6c, 0x79, 0x66, 0x65 } }
