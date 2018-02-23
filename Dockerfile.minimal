@@ -1,9 +1,13 @@
-FROM gcc AS buildtools
+FROM alpine AS buildtools
 ARG release
 
+# Replace the repository list in case it doesn't work
+COPY ./misc/repositories.txt /etc/apk/repositories
+
 # Update and install dependencies
-RUN apt-get update
-RUN apt-get -y --no-install-recommends install build-essential uuid-dev  acpica-tools git nasm
+RUN apk update
+#RUN apk add --no-cache gcc musl build-essential uuid-dev acpica git nasm
+RUN apk add --no-cache gcc musl git build-base util-linux-dev python acpica nasm bash
 
 # Pull source
 WORKDIR /root/src
@@ -33,7 +37,7 @@ FROM buildtools AS projectbuilder
 WORKDIR /root/src/edk2
 
 # Dependencies for create_iso
-RUN apt-get -y --no-install-recommends install dosfstools mtools xorriso
+RUN apk add --no-cache dosfstools mtools xorriso
 
 COPY ./misc/uefibutt_target.txt ./Conf/target.txt
 COPY ./script ./Uefibutt
