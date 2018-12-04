@@ -19,9 +19,10 @@
 #include <Pi/PiDxeCis.h>
 #include <Protocol/MpService.h>
 
-#include "loadelf.h"
 #include "graphics.h"
 #include "info.h"
+#include "loadelf.h"
+#include "uefi_acpi.h"
 #include "util.h"
 
 mem_map_t mem_map;
@@ -182,6 +183,33 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
 #endif
     }
 
+    /* 
+     * Find ACPI tables
+     * Check for both ACPI v1 and v2 rsdp header
+     */
+    for(size = 0; size < gST->NumberOfTableEntries; size++) {
+        EFI_CONFIGURATION_TABLE *cfg = &(gST->ConfigurationTable[size]);
+        if (memcmp(&cfg->VendorGuid, &gEfiAcpiTableGuid, sizeof(cfg->VendorGuid)) == 0 {
+         || memcmp(&cfg->VendorGuid, &gEfiAcpi20TableGuid, sizeof(cfg->VendorGuid)) == 0)) {
+            acpi_table = &(cfg->VendorTable);
+            break;
+        }
+    }
+
+    // Check if no rsdp was found
+    if (!acpi_table) {
+        Print(L"Failed to locate acpi rsdp\n");
+        efi_waitforkey();
+        return EFI_INVALID_PARAMETER;
+    }
+
+    status = validate_acpi_table(acpi_table);
+    if (EFI_ERROR(status)) {
+        Print(L"ACPI table validation failed\n");
+        efi_waitforkey();
+        return status;
+    }
+
     /*
      * Read memory map from UEFI
      */
@@ -203,21 +231,6 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
     }
 
     /*
-     * Load acpi tables from firmware
-     */
-    {
-        // How do I EDK2
-        EFI_GUID gEfiAcpiTableGuid = EFI_ACPI_TABLE_GUID;
-        for (size = 0; size < SystemTable->NumberOfTableEntries; size++) {
-            EFI_CONFIGURATION_TABLE *cfg = &(gST->ConfigurationTable[size]);
-            if (memcmp(&cfg->VendorGuid, &gEfiAcpiTableGuid, sizeof(cfg->VendorGuid)) == 0) {
-                // Matches the ACPI table guid
-                acpi_table = cfg->VendorTable;
-                break;
-            }
-        }
-    }
-    /*
      * Load Pi MpService protocol
      */
 
@@ -232,7 +245,8 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
      */
 
     status = init_graphics(&gfx_info);
-    
+
+    // Some efivar setting test code 
     CHAR16 str[] = L"string";
     UINTN ts = sizeof(str);
 

@@ -10,7 +10,7 @@
 
 #define EFI_MAXIMUM_VARIABLE_SIZE   1024
 
-typedef struct mem_map {
+typedef struct {
     EFI_MEMORY_DESCRIPTOR   *memory_map;
     UINT32                  desc_version;
     UINTN                   desc_size;
@@ -18,7 +18,7 @@ typedef struct mem_map {
     UINTN                   num_entries; 
 } mem_map_t;
 
-typedef struct gfx_info {
+typedef struct {
     UINT16                                  fb_hres; // Horizontal Resolution
     UINT16                                  fb_vres; // Vertical Resolution
     EFI_GRAPHICS_PIXEL_FORMAT               fb_pixfmt;
