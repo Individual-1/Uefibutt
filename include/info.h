@@ -28,4 +28,16 @@ typedef struct {
     UINTN                                   fb_size;
 } gfx_info_t;
 
+typedef struct {
+    EFI_GRAPHICS_OUTPUT_PROTOCOL_MODE   *gfx_protos;
+    UINT64                               num_protos;
+} gfx_config_t;
+
+typedef struct {
+    EFI_RUNTIME_SERVICES    *rtservice;
+    gfx_config_t            *gpu_config;
+    mem_map_t               *mem_map;
+    void                    *rsdp;
+}
+
 #endif

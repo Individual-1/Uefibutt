@@ -140,6 +140,7 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
             efi_waitforkey();
             return status;
         }
+
         size = finfo->FileSize;
         kernel = AllocateZeroPool(size);
         status = kfile->Read(kfile, &size, kernel);
@@ -160,7 +161,7 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
             return status;
         }
 
-        entry_point = elf_load_mem(kernel);
+        entry_point = elf_load_mem_relo(kernel);
         if (!entry_point) {
             Print(L"Elf failed to load");
             return EFI_OUT_OF_RESOURCES;
@@ -175,7 +176,7 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
             return status;
         }
 
-        entry_point = elf_load_file(kfile);
+        entry_point = elf_load_file_relo(kfile);
         if (!entry_point) {
             Print(L"Elf failed to load");
             return EFI_OUT_OF_RESOURCES;
@@ -232,13 +233,13 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
 
     /*
      * Load Pi MpService protocol
-     */
 
     status = gBS->LocateProtocol(&gEfiMpServiceProtocolGuid, NULL, (void **) &mps);
     if (EFI_ERROR(status)) {
         Print(L"Failed to locate MPService");
         return status;
     }
+    */
 
     /*
      * Initialize graphics

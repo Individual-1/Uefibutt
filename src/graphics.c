@@ -105,6 +105,33 @@ EFI_STATUS init_graphics(OUT gfx_info_t *gfx_info)
     return status;
 }
 
+EFI_STATUS init_graphics_conf(OUT gfx_config_t *gfx_config)
+{
+    EFI_HANDLE  *gfx_handles;
+    EFI_STATUS  status;
+    UINT64      size;
+    UINTN       num_handles = 0
+    gfx_config->num_protos = 0;
+
+    CHAR16 *pxl_fmts[] = {
+        L"RGBReserved 8Bpp",
+        L"BGRReserved 8Bpp",
+        L"PixelBitMask",
+        L"PixelBltOnly",
+        L"PixelFormatMax"
+    };
+
+
+    status = gBS->LocateHandleBuffer(ByProtocol, &GraphicsOutputProtocol, NULL, &num_handles, &gfx_handles);
+    if (EFI_ERROR(status)) {
+        Print(L"GraphicsTable LocateHandleBuffer failed.\n");
+        return status;
+    }
+
+    // TODO: Finish writing the selection stuff
+
+}
+
 /*
  * Iterate through the available modes and find whichever one makes best use of the display
  *
